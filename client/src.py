@@ -9,43 +9,53 @@ class MulticastAnnouncerClient:
         self.blacklisted_interfaces = [ 'lo', 'lo0' ]
         self.name = kwargs['nickname']
         self.ipv6 = kwargs['ipv6']
+        self.ips = {}
+        self.last_transmitted = None
 
         if self.name is None or len(self.name) == 0: raise Error("The name that you entered cannot be empty")
-        while True:
-            self.send()
-            time.sleep(30)
 
-    def send(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, self.MCAST_TTL)
+        self.listenForChanges()
+
+    def listenForChanges(self):
+        while True:
+            old_ips = self.ips.copy()
+            self.getIPs()
+            for interface in self.ips.keys():
+                ip = self.ips[interface]
+                if interface not in old_ips.keys(): self.sendPacket(ip)
+                elif old_ips[interface] != ip: self.sendPacket(ip)
+            if time.time() - self.last_transmitted > 300:
+                for interface in self.ips.keys():
+                    ip = self.ips[interface]
+                    self.sendPacket(ip)
+            time.sleep(1)
+
+    def getIPs(self):
         for inter in netifaces.interfaces():
             if inter not in self.blacklisted_interfaces:
                 interface = netifaces.ifaddresses(inter)
                 for address in interface:
                     if len(interface[address][0]['addr']) > 0:
-                        addr = interface[address][0]['addr']
                         try:
-                            classType = ipaddress.ip_address(addr)
-                            if isinstance(classType, ipaddress.IPv6Address) and self.ipv6: self.sendPacket(addr)
-                            else: self.sendPacket(addr)
+                            classType = ipaddress.ip_address(interface[address][0]['addr'])
+                            if isinstance(classType, ipaddress.IPv6Address) and self.ipv6: self.ips[inter] = interface[address][0]['addr']
+                            else: self.ips[inter] = interface[address][0]['addr']
                         except: pass
     
     def sendPacket(self, address):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, self.MCAST_TTL)
-
+        self.last_transmitted = time.time()
         data = "{}:{}".format(self.name, address)
-        sock.sendto(bytes(data, "utf-8"), (self.MCAST_GROUP, self.MCAST_PORT))
-
-def str2bool(v):
-    if isinstance(v, bool):
-       return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
+        self.sock.sendto(bytes(data, "utf-8"), (self.MCAST_GROUP, self.MCAST_PORT))
 
 if __name__ == "__main__":
+    def str2bool(v):
+        if isinstance(v, bool): return v
+        if v.lower() in ('yes', 'true', 't', 'y', '1'): return True
+        elif v.lower() in ('no', 'false', 'f', 'n', '0'): return False
+        else: raise argparse.ArgumentTypeError('Boolean value expected.')
+
     parser = argparse.ArgumentParser(description="Multicast IP Announcer")
     parser.add_argument('nickname', type=str)
     parser.add_argument('-ipv6', type=str2bool, nargs='?', const=True, default=False, help='Enable IPv6 IP Reporting')

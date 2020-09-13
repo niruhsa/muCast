@@ -1,5 +1,5 @@
 import socket, struct, netifaces, ipaddress
-from netaddr import IPAddress
+from netaddr import IPAddress, IPNetwork
 
 class MulticastAnnouncerListener:
 
@@ -51,7 +51,9 @@ class MulticastAnnouncerListener:
             nickname = recv.split(":")[0]
             address = ipaddress.ip_address(recv.split(":")[1])
             for subnet in self.localSubnets:
-                if address in subnet.hosts(): sys.stdout.write(recv)
+                subnet = IPNetwork(str(subnet))
+                ip = IPAddress(str(address))
+                if ip in subnet: sys.stdout.write(recv)
         except: pass
 
 if __name__ == "__main__": MCAListener = MulticastAnnouncerListener()
