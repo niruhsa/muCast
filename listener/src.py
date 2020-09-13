@@ -1,14 +1,19 @@
-import socket, struct, netifaces, ipaddress
+import socket, struct, netifaces, ipaddress, argparse
 from netaddr import IPAddress, IPNetwork
 
 class MulticastAnnouncerListener:
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.MCAST_GROUP = '224.1.1.1'
         self.MCAST_PORT = 4180
         self.IS_ALL_GROUPS = True
         self.blacklisted_interfaces = [ 'lo', 'lo0' ]
         self.localSubnets = []
+        self.ips = {}
+        self.logfile = kwargs['o']
+
+        if not self.logfile: print("[ OK ] Writing to stdout")
+        else: print('[ OK ] Writing to logfile: {}'.format(self.logfile))
 
         self.getLocalSubnets()
         self.receive()
@@ -53,7 +58,22 @@ class MulticastAnnouncerListener:
             for subnet in self.localSubnets:
                 subnet = IPNetwork(str(subnet))
                 ip = IPAddress(str(address))
-                if ip in subnet: sys.stdout.write(recv)
+                if ip in subnet: self.ips[nickname] = address
+                if self.logfile: self.writeLogFile()
+                else: sys.stdout.write("{}:{}".format(nickname, address))
         except: pass
 
-if __name__ == "__main__": MCAListener = MulticastAnnouncerListener()
+    def writeLogFile(self):
+        with open(self.logfile, 'w') as file:
+            file_content = ""
+            for nickname in self.ips:
+                ip = self.ips[nickname]
+                file_content += "{}:{}\n".format(nickname, ip)
+            file.write(file_content)
+            file.close()
+
+if __name__ == "__main__": 
+    parser = argparse.ArgumentParser(description="Multicast IP Announcer")
+    parser.add_argument('-o', nargs='?', const=True, default=False, help='Write to logfile instead of /dev/stdout')
+    args = vars(parser.parse_args())
+    MCAListener = MulticastAnnouncerListener(**args)
