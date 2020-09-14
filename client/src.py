@@ -27,15 +27,21 @@ class MulticastAnnouncerClient:
             try:
                 old_ips = self.ips.copy()
                 self.getIPs()
-                if time.time() - self.last_transmitted > int(self.timer):
-                    for interface in self.ips:
-                        for ip in self.ips[interface]:
-                            self.sendPacket(ip['addr'])
                 for interface in self.ips.keys():
                     for ip in self.ips[interface]:
                         if interface not in old_ips.keys(): self.sendPacket(ip['addr'])
-                        elif old_ips[interface][old_ips[interface].indexOf(ip)]['addr'] != ip['addr']: self.sendPacket(ip['addr'])
-            except Exception as e: pass
+                        else:
+                            match = False
+                            for oip in old_ips[interface]:
+                                if oip['addr'] == ip['addr']: match = True
+                            if not match: self.sendPacket(ip['addr'])
+
+                if time.time() - self.last_transmitted > int(self.timer):
+                    for interface in self.ips:
+                        for ip in self.ips[interface]:
+                            print(ip)
+
+            except Exception as e: print(e)
             time.sleep(1)
 
     def getIPs(self):
@@ -45,6 +51,15 @@ class MulticastAnnouncerClient:
                 for address in interface:
                     if inter not in self.ips: self.ips[inter] = interface[address]
                     else: self.ips[inter] += interface[address]
+
+                    l = self.ips[inter].copy()
+                    new_l = []
+                    for item in l:
+                        in_new = False
+                        for oitem in new_l:
+                            if item['addr'] == oitem['addr']: in_new = True
+                        if not in_new: new_l.append(item)
+                    self.ips[inter] = new_l
     
     def sendPacket(self, address):
         try:
