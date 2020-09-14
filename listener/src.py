@@ -1,4 +1,5 @@
-import socket, struct, netifaces, ipaddress, argparse, codecs
+#!/usr/bin/python3
+import socket, struct, netifaces, ipaddress, argparse, codecs, sys
 from netaddr import IPAddress, IPNetwork
 
 class MulticastAnnouncerListener:
@@ -12,11 +13,9 @@ class MulticastAnnouncerListener:
         self.ips = {}
         self.logfile = kwargs['o']
         self.seperator = kwargs['s']
-        self.verbose = kwargs['v'][0]
+        self.verbose = kwargs['v']
 
-        if self.verbose <= 0 or self.verbose > 3: print('[ERROR] Verbosity has to be between 1-3 1 being the most verbose, 3 being the least')
-
-        if not self.logfile: print("[ OK ] Writing to stdout")
+        if not self.logfile: print("[ OK ] Writing to stderr (VERBOSE)")
         else: print('[ OK ] Writing to logfile: {}'.format(self.logfile))
 
         self.getLocalSubnets()
@@ -56,7 +55,7 @@ class MulticastAnnouncerListener:
             self.parseResponse(recv)
 
     def parseResponse(self, recv):
-        if self.verbose == 1: print('[TRACE] {}'.format(recv))
+        if self.verbose: sys.stderr.write('[VERBOSE] {}\n'.format(recv))
         try:
             nickname = recv.split(":")[0]
             address = ipaddress.ip_address(recv.split(":")[1])
@@ -65,12 +64,8 @@ class MulticastAnnouncerListener:
                 ip = IPAddress(str(address))
                 if ip in subnet:
                     self.ips[nickname] = address
-                    if self.verbose <= 2: print('[DEBUG] {}'.format(recv))
-                    if self.logfile:
-                        if self.verbose <= 3: print(codecs.decode(("{}{}{}".format(nickname, self.seperator, address)), 'unicode_escape'))
-                        self.writeLogFile()
-                    else:
-                        if self.verbose <= 3: print(codecs.decode(("{}{}{}".format(nickname, self.seperator, address)), 'unicode_escape'))
+                    if self.logfile: self.writeLogFile()
+                    else: print(codecs.decode(("{}{}{}".format(nickname, self.seperator, address)), 'unicode_escape'))
         except Exception as e: pass
 
     def writeLogFile(self):
@@ -86,6 +81,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Multicast IP Announcer")
     parser.add_argument('-o', nargs='?', const=True, default=False, help='Write to logfile instead of /dev/stdout')
     parser.add_argument('-s', nargs='?', const=True, default=":", help='Character for the nickname<seperator>ip format, by default this seperator is ":"')
-    parser.add_argument('-v', type=int, nargs=1, default='3', help='What verbosity level to use, 1 = Everything received, 2 = Everything filtered, 3 = Everything formatted, default is 3.')
+    parser.add_argument('-v', nargs='?', const=True, default=False, help='Enable verbosity')
     args = vars(parser.parse_args())
     MCAListener = MulticastAnnouncerListener(**args)

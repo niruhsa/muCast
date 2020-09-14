@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import socket, time, ipaddress, netifaces, argparse
 
 class MulticastAnnouncerClient:
@@ -20,18 +21,20 @@ class MulticastAnnouncerClient:
         self.listenForChanges()
 
     def listenForChanges(self):
-        while True:
-            old_ips = self.ips.copy()
-            self.getIPs()
-            for interface in self.ips.keys():
-                ip = self.ips[interface]
-                if interface not in old_ips.keys(): self.sendPacket(ip)
-                elif old_ips[interface] != ip: self.sendPacket(ip)
-            if time.time() - self.last_transmitted > self.timer:
+        try:
+            while True:
+                old_ips = self.ips.copy()
+                self.getIPs()
                 for interface in self.ips.keys():
                     ip = self.ips[interface]
-                    self.sendPacket(ip)
-            time.sleep(1)
+                    if interface not in old_ips.keys(): self.sendPacket(ip)
+                    elif old_ips[interface] != ip: self.sendPacket(ip)
+                if time.time() - self.last_transmitted > self.timer:
+                    for interface in self.ips.keys():
+                        ip = self.ips[interface]
+                        self.sendPacket(ip)
+                time.sleep(1)
+        except KeyboardInterrupt: pass
 
     def getIPs(self):
         for inter in netifaces.interfaces():
