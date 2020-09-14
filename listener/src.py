@@ -77,6 +77,7 @@ class MulticastAnnouncerListener:
             for subnet in self.localSubnets:
                 subnet = IPNetwork(str(subnet))
                 ip = IPAddress(str(address))
+                print(ip in subnet, nickname != self.name)
                 if ip in subnet and nickname != self.name:
                     print("OK")
                     self.ips[nickname] = address
