@@ -9,6 +9,7 @@ class MulticastAnnouncerClient:
         self.blacklisted_interfaces = [ 'lo', 'lo0' ]
         self.name = kwargs['nickname']
         self.ipv6 = kwargs['ipv6']
+        self.timer = kwargs['timer']
         self.ips = {}
         self.last_transmitted = None
 
@@ -26,7 +27,7 @@ class MulticastAnnouncerClient:
                 ip = self.ips[interface]
                 if interface not in old_ips.keys(): self.sendPacket(ip)
                 elif old_ips[interface] != ip: self.sendPacket(ip)
-            if time.time() - self.last_transmitted > 300:
+            if time.time() - self.last_transmitted > self.timer:
                 for interface in self.ips.keys():
                     ip = self.ips[interface]
                     self.sendPacket(ip)
@@ -59,6 +60,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Multicast IP Announcer")
     parser.add_argument('nickname', type=str)
     parser.add_argument('-ipv6', type=str2bool, nargs='?', const=True, default=False, help='Enable IPv6 IP Reporting')
+    parser.add_argument('-timer', type=int, nargs='?', const=True, default=30, help='How long it should wait before rebroadcasting all IPs if no changes are detected in seconds')
     args = vars(parser.parse_args())
     MCAClient = MulticastAnnouncerClient(**args)
 
