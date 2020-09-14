@@ -50,6 +50,9 @@ class MulticastAnnouncerListener:
                         except Exception as e: continue
             self.blacklisted_ips = blacklisted_ips
             self.localSubnets = localSubnets
+            if self.verbose:
+                for subnet in self.localSubnets:
+                    print(str(subnet))
             time.sleep(1)
 
     def receive(self):
