@@ -13,53 +13,56 @@ class MulticastAnnouncerClient:
         self.timer = kwargs['timer']
         self.verbose = kwargs['v']
         self.ips = {}
-        self.last_transmitted = None
+        self.last_transmitted = 0
 
         if self.name is None or len(self.name) == 0: raise Error("The name that you entered cannot be empty")
 
-        sys.stdout.flush()
-        sys.stderr.flush()
-
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, self.MCAST_TTL)
+
         self.listenForChanges()
 
     def listenForChanges(self):
-        try:
-            while True:
+        while True:
+            try:
                 old_ips = self.ips.copy()
                 self.getIPs()
+                if time.time() - self.last_transmitted > int(self.timer):
+                    for interface in self.ips:
+                        for ip in self.ips[interface]:
+                            self.sendPacket(ip['addr'])
                 for interface in self.ips.keys():
-                    ip = self.ips[interface]
-                    if interface not in old_ips.keys(): self.sendPacket(ip)
-                    elif old_ips[interface] != ip: self.sendPacket(ip)
-                if time.time() - self.last_transmitted > self.timer:
-                    for interface in self.ips.keys():
-                        ip = self.ips[interface]
-                        self.sendPacket(ip)
-                time.sleep(1)
-        except Exception as e: pass
+                    for ip in self.ips[interface]:
+                        if interface not in old_ips.keys(): self.sendPacket(ip['addr'])
+                        elif old_ips[interface][old_ips[interface].indexOf(ip)]['addr'] != ip['addr']: self.sendPacket(ip['addr'])
+            except Exception as e: pass
+            time.sleep(1)
 
     def getIPs(self):
         for inter in netifaces.interfaces():
             if inter not in self.blacklisted_interfaces:
                 interface = netifaces.ifaddresses(inter)
                 for address in interface:
-                    if len(interface[address][0]['addr']) > 0 and len(interface[address]) == 1:
-                        try:
-                            classType = ipaddress.ip_address(interface[address][0]['addr'])
-                            if isinstance(classType, ipaddress.IPv6Address) and self.ipv6: self.ips[inter] = interface[address][0]['addr']
-                            else: self.ips[inter] = interface[address][0]['addr']
-                        except Exception as e: pass
+                    if inter not in self.ips: self.ips[inter] = interface[address]
+                    else: self.ips[inter] += interface[address]
     
     def sendPacket(self, address):
-        id = self.randomString()
-        t = time.time()
-        if self.verbose: 
-            print("[VERBOSE] Sending packet {} at {} with content {}".format(id, t, self.name + ":" + address), file=sys.stderr)
-        data = "{}:{}:{}:{}".format(self.name, address, id, t)
-        self.sock.sendto(bytes(data, "utf-8"), (self.MCAST_GROUP, self.MCAST_PORT))
-        self.last_transmitted = t
+        try:
+            id = self.randomString()
+            t = time.time()
+            data = "{}:{}:{}:{}".format(self.name, address, id, t)
+            ip_type = ipaddress.ip_address(address)
+            if self.verbose or (self.verbose and isinstance(ip_type, ipaddress.IPv6Address) and self.ipv6):
+                print("[VERBOSE] Sending packet {} at {} with content {}".format(id, t, self.name + ":" + address), file=sys.stderr)
+            
+            if isinstance(ip_type, ipaddress.IPv6Address) and self.ipv6: self.sock.sendto(bytes(data, "utf-8"), (self.MCAST_GROUP, self.MCAST_PORT))
+            else: self.sock.sendto(bytes(data, "utf-8"), (self.MCAST_GROUP, self.MCAST_PORT))
+            
+            self.last_transmitted = t
+            return True
+        except: return False
+
+            
 
     def randomString(self, length=8):
         ret = ""
