@@ -1,13 +1,13 @@
 from client.src import MulticastAnnouncerClient
 from listener.src import MulticastAnnouncerListener
-import argparse
+import argparse, threading
 
 class Master:
 
     def __init__(self, **kwargs):
         self.args = kwargs
-        self.MCAClient = MulticastAnnouncerClient(**self.args)
-        self.MCAListener = MulticastAnnouncerListener(**self.args)
+        self.MCAClient = threading.Thread(target=MulticastAnnouncerClient, kwargs=self.args).start()
+        self.MCAListener = threading.Thread(target=MulticastAnnouncerListener, kwargs=self.args).start()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Multicast IP Announcer")

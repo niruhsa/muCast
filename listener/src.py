@@ -16,8 +16,8 @@ class MulticastAnnouncerListener:
         self.seperator = kwargs['s']
         self.verbose = kwargs['v']
 
-        if not self.logfile: print("[ OK ] Writing to stderr (VERBOSE)")
-        else: print('[ OK ] Writing to logfile: {}'.format(self.logfile))
+        if not self.logfile: print("[ OK ] Writing to stdout", file=sys.stdout)
+        else: print('[ OK ] Writing to logfile: {}'.format(self.logfile), file=sys.stdout)
 
         sys.stdout.flush()
         sys.stderr.flush()
@@ -72,7 +72,7 @@ class MulticastAnnouncerListener:
             packet_id = recv.split(":")[2]
             timestamp = recv.split(":")[3]
             if self.verbose:
-                sys.stderr.write("[VERBOSE] Packet {} from {} with content {} received at {} ({} difference in ms)\n".format(packet_id, nickname, address, timestamp, ((time.time() - float(timestamp)) / 1000)))
+                print("[VERBOSE] Packet {} from {} with content {} received at {} ({} difference in ms)".format(packet_id, nickname, address, timestamp, ((time.time() - float(timestamp)) / 1000)), file=sys.stderr)
                 sys.stderr.flush()
             for subnet in self.localSubnets:
                 subnet = IPNetwork(str(subnet))
@@ -81,9 +81,8 @@ class MulticastAnnouncerListener:
                     self.ips[nickname] = address
                     if self.logfile: self.writeLogFile()
                     else:
-                        sys.stdout.write(codecs.decode(("{}{}{}\n".format(nickname, self.seperator, address)), 'unicode_escape'))
-                        sys.stdout.flush()
-        except Exception as e: print(e)
+                        print(codecs.decode(("{}{}{}".format(nickname, self.seperator, address)), 'unicode_escape'), file=sys.stdout)
+        except Exception as e: pass
 
     def writeLogFile(self):
         with open(self.logfile, 'w') as file:

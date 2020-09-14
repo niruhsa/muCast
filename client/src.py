@@ -56,8 +56,7 @@ class MulticastAnnouncerClient:
         id = self.randomString()
         t = time.time()
         if self.verbose: 
-            sys.stderr.write("[VERBOSE] Sending packet {} at {} with content {}\n".format(id, t, self.name + ":" + address))
-            sys.stderr.flush()
+            print("[VERBOSE] Sending packet {} at {} with content {}".format(id, t, self.name + ":" + address), file=sys.stderr)
         data = "{}:{}:{}:{}".format(self.name, address, id, t)
         self.sock.sendto(bytes(data, "utf-8"), (self.MCAST_GROUP, self.MCAST_PORT))
         self.last_transmitted = t
