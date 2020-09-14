@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import socket, time, ipaddress, netifaces, argparse
+import socket, time, ipaddress, netifaces, argparse, string, random, sys
 
 class MulticastAnnouncerClient:
 
@@ -11,10 +11,14 @@ class MulticastAnnouncerClient:
         self.name = kwargs['nickname']
         self.ipv6 = kwargs['ipv6']
         self.timer = kwargs['timer']
+        self.verbose = kwargs['v']
         self.ips = {}
         self.last_transmitted = None
 
         if self.name is None or len(self.name) == 0: raise Error("The name that you entered cannot be empty")
+
+        sys.stdout.flush()
+        sys.stderr.flush()
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, self.MCAST_TTL)
@@ -46,12 +50,23 @@ class MulticastAnnouncerClient:
                             classType = ipaddress.ip_address(interface[address][0]['addr'])
                             if isinstance(classType, ipaddress.IPv6Address) and self.ipv6: self.ips[inter] = interface[address][0]['addr']
                             else: self.ips[inter] = interface[address][0]['addr']
-                        except: pass
+                        except Exception as e: pass
     
     def sendPacket(self, address):
-        self.last_transmitted = time.time()
-        data = "{}:{}".format(self.name, address)
+        id = self.randomString()
+        t = time.time()
+        if self.verbose: 
+            sys.stderr.write("[VERBOSE] Sending packet {} at {} with content {}\n".format(id, t, self.name + ":" + address))
+            sys.stderr.flush()
+        data = "{}:{}:{}:{}".format(self.name, address, id, t)
         self.sock.sendto(bytes(data, "utf-8"), (self.MCAST_GROUP, self.MCAST_PORT))
+        self.last_transmitted = t
+
+    def randomString(self, length=8):
+        ret = ""
+        chars = string.ascii_lowercase + string.ascii_uppercase + string.digits
+        for i in range(length): ret += chars[random.randint(0, len(chars) - 1)]
+        return ret
 
 if __name__ == "__main__":
     def str2bool(v):
@@ -64,6 +79,7 @@ if __name__ == "__main__":
     parser.add_argument('nickname', type=str)
     parser.add_argument('-ipv6', type=str2bool, nargs='?', const=True, default=False, help='Enable IPv6 IP Reporting')
     parser.add_argument('-timer', type=int, nargs='?', const=True, default=30, help='How long it should wait before rebroadcasting all IPs if no changes are detected in seconds')
+    parser.add_argument('-v', nargs='?', const=True, default=False, help='Enable verbose logging of the packets sent')
     args = vars(parser.parse_args())
     MCAClient = MulticastAnnouncerClient(**args)
 

@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import socket, struct, netifaces, ipaddress, argparse, codecs, sys
+import socket, struct, netifaces, ipaddress, argparse, codecs, sys, time
 from netaddr import IPAddress, IPNetwork
 
 class MulticastAnnouncerListener:
@@ -17,6 +17,9 @@ class MulticastAnnouncerListener:
 
         if not self.logfile: print("[ OK ] Writing to stderr (VERBOSE)")
         else: print('[ OK ] Writing to logfile: {}'.format(self.logfile))
+
+        sys.stdout.flush()
+        sys.stderr.flush()
 
         self.getLocalSubnets()
         self.receive()
@@ -55,18 +58,24 @@ class MulticastAnnouncerListener:
             self.parseResponse(recv)
 
     def parseResponse(self, recv):
-        if self.verbose: sys.stderr.write('[VERBOSE] {}\n'.format(recv))
         try:
             nickname = recv.split(":")[0]
             address = ipaddress.ip_address(recv.split(":")[1])
+            packet_id = recv.split(":")[2]
+            timestamp = recv.split(":")[3]
+            if self.verbose:
+                sys.stderr.write("[VERBOSE] Packet {} from {} with content {} received at {} ({} difference in ms)\n".format(packet_id, nickname, address, timestamp, ((time.time() - float(timestamp)) / 1000)))
+                sys.stderr.flush()
             for subnet in self.localSubnets:
                 subnet = IPNetwork(str(subnet))
                 ip = IPAddress(str(address))
                 if ip in subnet:
                     self.ips[nickname] = address
                     if self.logfile: self.writeLogFile()
-                    else: print(codecs.decode(("{}{}{}".format(nickname, self.seperator, address)), 'unicode_escape'))
-        except Exception as e: pass
+                    else:
+                        sys.stdout.write(codecs.decode(("{}{}{}\n".format(nickname, self.seperator, address)), 'unicode_escape'))
+                        sys.stdout.flush()
+        except Exception as e: print(e)
 
     def writeLogFile(self):
         with open(self.logfile, 'w') as file:
