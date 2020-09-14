@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import socket, struct, netifaces, ipaddress, codecs, sys, time
+import socket, struct, netifaces, ipaddress, codecs, sys, time, threading
 from netaddr import IPAddress, IPNetwork
 
 class MulticastAnnouncerListener:
@@ -15,6 +15,7 @@ class MulticastAnnouncerListener:
         self.logfile = kwargs['o']
         self.seperator = kwargs['s']
         self.verbose = kwargs['v']
+        self.name = kwargs['nickname']
 
         if not self.logfile: print("[ OK ] Writing to stdout", file=sys.stdout)
         else: print('[ OK ] Writing to logfile: {}'.format(self.logfile), file=sys.stdout)
@@ -22,34 +23,34 @@ class MulticastAnnouncerListener:
         sys.stdout.flush()
         sys.stderr.flush()
 
-        self.receive()
-        while True:
-            self.getLocalSubnets()
-            time.sleep(1)
+        localSubnets = threading.Thread(target=self.getLocalSubnets, args=()).start()
+        receive = threading.Thread(target=self.receive, args=()).start()
 
     def getLocalSubnets(self):
-        blacklisted_ips = []
-        localSubnets = []
-        for inter in netifaces.interfaces():
-            if inter not in self.blacklisted_interfaces:
-                interface = netifaces.ifaddresses(inter)
-                for address in interface:
-                    blacklisted_ips.push(address)
-                    try:
-                        bits = None
-                        ip_addr = None
+        while True:
+            blacklisted_ips = []
+            localSubnets = []
+            for inter in netifaces.interfaces():
+                if inter not in self.blacklisted_interfaces:
+                    interface = netifaces.ifaddresses(inter)
+                    for address in interface:
+                        blacklisted_ips.append(interface[address][0]['addr'])
+                        try:
+                            bits = None
+                            ip_addr = None
 
-                        if 'netmask' in interface[address][0].keys():
-                            netmask = interface[address][0]['netmask']
-                            bits = IPAddress(netmask).netmask_bits()
-                        if 'addr' in interface[address][0].keys():
-                            ip_addr = interface[address][0]['addr']
+                            if 'netmask' in interface[address][0].keys():
+                                netmask = interface[address][0]['netmask']
+                                bits = IPAddress(netmask).netmask_bits()
+                            if 'addr' in interface[address][0].keys():
+                                ip_addr = interface[address][0]['addr']
 
-                        cidr = "{}/{}".format(ip_addr, bits)
-                        localSubnets.append(ipaddress.ip_network(cidr, False))
-                    except: pass
-        self.blacklisted_ips = blacklisted_ips
-        self.localSubnets = localSubnets
+                            cidr = "{}/{}".format(ip_addr, bits)
+                            localSubnets.append(ipaddress.ip_network(cidr, False))
+                        except Exception as e: continue
+            self.blacklisted_ips = blacklisted_ips
+            self.localSubnets = localSubnets
+            time.sleep(1)
 
     def receive(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -73,15 +74,15 @@ class MulticastAnnouncerListener:
             timestamp = recv.split(":")[3]
             if self.verbose:
                 print("[VERBOSE] Packet {} from {} with content {} received at {} ({} difference in ms)".format(packet_id, nickname, address, timestamp, ((time.time() - float(timestamp)) / 1000)), file=sys.stderr)
-                sys.stderr.flush()
             for subnet in self.localSubnets:
                 subnet = IPNetwork(str(subnet))
                 ip = IPAddress(str(address))
-                if ip in subnet and ip not in self.blacklisted_ips:
+                print(nickname, self.name)
+                if ip in subnet and nickname != self.name:
+                    print("OK")
                     self.ips[nickname] = address
                     if self.logfile: self.writeLogFile()
-                    else:
-                        print(codecs.decode(("{}{}{}".format(nickname, self.seperator, address)), 'unicode_escape'), file=sys.stdout)
+                    print(codecs.decode(("{}{}{}".format(nickname, self.seperator, address)), 'unicode_escape'))
         except Exception as e: pass
 
     def writeLogFile(self):
