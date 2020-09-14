@@ -80,7 +80,7 @@ class MulticastAnnouncerListener:
                 if ip in subnet and nickname != self.name:
                     self.ips[nickname] = address
                     if self.logfile: self.writeLogFile()
-                    print(codecs.decode(("{}{}{}".format(nickname, self.seperator, address)), 'unicode_escape'), file=sys.stdout)
+                    print(codecs.decode(("{}{}{}".format(nickname, self.seperator, address)), 'unicode_escape'))
         except Exception as e: pass
 
     def writeLogFile(self):
