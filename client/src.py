@@ -38,14 +38,14 @@ class MulticastAnnouncerClient:
                         ip = self.ips[interface]
                         self.sendPacket(ip)
                 time.sleep(1)
-        except KeyboardInterrupt: pass
+        except Exception as e: pass
 
     def getIPs(self):
         for inter in netifaces.interfaces():
             if inter not in self.blacklisted_interfaces:
                 interface = netifaces.ifaddresses(inter)
                 for address in interface:
-                    if len(interface[address][0]['addr']) > 0:
+                    if len(interface[address][0]['addr']) > 0 and len(interface[address]) == 1:
                         try:
                             classType = ipaddress.ip_address(interface[address][0]['addr'])
                             if isinstance(classType, ipaddress.IPv6Address) and self.ipv6: self.ips[inter] = interface[address][0]['addr']

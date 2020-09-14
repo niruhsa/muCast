@@ -77,9 +77,7 @@ class MulticastAnnouncerListener:
             for subnet in self.localSubnets:
                 subnet = IPNetwork(str(subnet))
                 ip = IPAddress(str(address))
-                print(nickname, self.name)
                 if ip in subnet and nickname != self.name:
-                    print("OK")
                     self.ips[nickname] = address
                     if self.logfile: self.writeLogFile()
                     print(codecs.decode(("{}{}{}".format(nickname, self.seperator, address)), 'unicode_escape'))
