@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import socket, struct, netifaces, ipaddress, codecs, sys, time, threading
+import socket, struct, netifaces, ipaddress, codecs, sys, time, threading, logging
 from netaddr import IPAddress, IPNetwork
 
 class MulticastAnnouncerListener:
@@ -16,9 +16,18 @@ class MulticastAnnouncerListener:
         self.seperator = kwargs['s']
         self.verbose = kwargs['v']
         self.name = kwargs['nickname']
+        
+        self.log = logging.getLogger(__name__)
+        syslog = logging.StreamHandler()
 
-        if not self.logfile: print("[ OK ] Writing to stdout", file=sys.stdout)
-        else: print('[ OK ] Writing to logfile: {}'.format(self.logfile), file=sys.stdout)
+        formatter = logging.Formatter("%(message)s")
+        syslog.setFormatter(formatter)
+        self.log.setLevel(logging.DEBUG)
+        self.log.addHandler(syslog)
+        self.log = logging.LoggerAdapter(self.log, { 'app_name': 'muCast' })
+
+        if not self.logfile: self.log.debug("[ OK ] Writing to stdout")
+        else: self.log.debug('[ OK ] Writing to logfile: {}'.format(self.logfile))
 
         sys.stdout.flush()
         sys.stderr.flush()
@@ -73,14 +82,14 @@ class MulticastAnnouncerListener:
             packet_id = recv.split(":")[2]
             timestamp = recv.split(":")[3]
             if self.verbose:
-                print("[VERBOSE] Packet {} from {} with content {} received at {} ({} difference in ms)".format(packet_id, nickname, address, timestamp, ((time.time() - float(timestamp)) / 1000)), file=sys.stderr)
+                self.log.debug("[VERBOSE] Packet {} from {} with content {} received at {} ({} difference in ms)".format(packet_id, nickname, address, timestamp, ((time.time() - float(timestamp)) / 1000)), file=sys.stderr)
             for subnet in self.localSubnets:
                 subnet = IPNetwork(str(subnet))
                 ip = IPAddress(str(address))
                 if ip in subnet and nickname != self.name:
                     self.ips[nickname] = address
                     if self.logfile: self.writeLogFile()
-                    print(codecs.decode(("{}{}{}".format(address, self.seperator, nickname)), 'unicode_escape'))
+                    self.log.info(codecs.decode(("{}{}{}".format(address, self.seperator, nickname)), 'unicode_escape'))
         except Exception as e: pass
 
     def writeLogFile(self):
