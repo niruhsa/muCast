@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import socket, struct, netifaces, ipaddress, argparse, codecs, sys, time
+import socket, struct, netifaces, ipaddress, codecs, sys, time
 from netaddr import IPAddress, IPNetwork
 
 class MulticastAnnouncerListener:
@@ -9,6 +9,7 @@ class MulticastAnnouncerListener:
         self.MCAST_PORT = 4180
         self.IS_ALL_GROUPS = True
         self.blacklisted_interfaces = [ 'lo', 'lo0' ]
+        self.blacklisted_ips = []
         self.localSubnets = []
         self.ips = {}
         self.logfile = kwargs['o']
@@ -21,14 +22,19 @@ class MulticastAnnouncerListener:
         sys.stdout.flush()
         sys.stderr.flush()
 
-        self.getLocalSubnets()
         self.receive()
+        while True:
+            self.getLocalSubnets()
+            time.sleep(1)
 
     def getLocalSubnets(self):
+        blacklisted_ips = []
+        localSubnets = []
         for inter in netifaces.interfaces():
             if inter not in self.blacklisted_interfaces:
                 interface = netifaces.ifaddresses(inter)
                 for address in interface:
+                    blacklisted_ips.push(address)
                     try:
                         bits = None
                         ip_addr = None
@@ -40,8 +46,10 @@ class MulticastAnnouncerListener:
                             ip_addr = interface[address][0]['addr']
 
                         cidr = "{}/{}".format(ip_addr, bits)
-                        self.localSubnets.append(ipaddress.ip_network(cidr, False))
+                        localSubnets.append(ipaddress.ip_network(cidr, False))
                     except: pass
+        self.blacklisted_ips = blacklisted_ips
+        self.localSubnets = localSubnets
 
     def receive(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -69,7 +77,7 @@ class MulticastAnnouncerListener:
             for subnet in self.localSubnets:
                 subnet = IPNetwork(str(subnet))
                 ip = IPAddress(str(address))
-                if ip in subnet:
+                if ip in subnet and ip not in self.blacklisted_ips:
                     self.ips[nickname] = address
                     if self.logfile: self.writeLogFile()
                     else:
@@ -85,11 +93,3 @@ class MulticastAnnouncerListener:
                 file_content += "{}{}{}\n".format(nickname, self.seperator, ip)
             file.write(codecs.decode(file_content, 'unicode_escape'))
             file.close()
-
-if __name__ == "__main__": 
-    parser = argparse.ArgumentParser(description="Multicast IP Announcer")
-    parser.add_argument('-o', nargs='?', const=True, default=False, help='Write to logfile instead of /dev/stdout')
-    parser.add_argument('-s', nargs='?', const=True, default=":", help='Character for the nickname<seperator>ip format, by default this seperator is ":"')
-    parser.add_argument('-v', nargs='?', const=True, default=False, help='Enable verbosity')
-    args = vars(parser.parse_args())
-    MCAListener = MulticastAnnouncerListener(**args)

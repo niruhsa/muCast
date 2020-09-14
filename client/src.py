@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import socket, time, ipaddress, netifaces, argparse, string, random, sys
+import socket, time, ipaddress, netifaces, string, random, sys
 
 class MulticastAnnouncerClient:
 
@@ -67,20 +67,3 @@ class MulticastAnnouncerClient:
         chars = string.ascii_lowercase + string.ascii_uppercase + string.digits
         for i in range(length): ret += chars[random.randint(0, len(chars) - 1)]
         return ret
-
-if __name__ == "__main__":
-    def str2bool(v):
-        if isinstance(v, bool): return v
-        if v.lower() in ('yes', 'true', 't', 'y', '1'): return True
-        elif v.lower() in ('no', 'false', 'f', 'n', '0'): return False
-        else: raise argparse.ArgumentTypeError('Boolean value expected.')
-
-    parser = argparse.ArgumentParser(description="Multicast IP Announcer")
-    parser.add_argument('nickname', type=str)
-    parser.add_argument('-ipv6', type=str2bool, nargs='?', const=True, default=False, help='Enable IPv6 IP Reporting')
-    parser.add_argument('-timer', type=int, nargs='?', const=True, default=30, help='How long it should wait before rebroadcasting all IPs if no changes are detected in seconds')
-    parser.add_argument('-v', nargs='?', const=True, default=False, help='Enable verbose logging of the packets sent')
-    args = vars(parser.parse_args())
-    MCAClient = MulticastAnnouncerClient(**args)
-
-
