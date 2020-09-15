@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import socket, time, ipaddress, netifaces, string, random, sys
+import socket, time, ipaddress, netifaces, string, random, sys, logging
 
 class MulticastAnnouncerClient:
 
@@ -14,6 +14,15 @@ class MulticastAnnouncerClient:
         self.verbose = kwargs['v']
         self.ips = {}
         self.last_transmitted = 0
+
+        self.log = logging.getLogger(__name__)
+        syslog = logging.StreamHandler()
+
+        formatter = logging.Formatter("%(message)s")
+        syslog.setFormatter(formatter)
+        self.log.setLevel(logging.DEBUG)
+        self.log.addHandler(syslog)
+        self.log = logging.LoggerAdapter(self.log, { 'app_name': 'muCast' })
 
         if self.name is None or len(self.name) == 0: raise Error("The name that you entered cannot be empty")
 
@@ -41,7 +50,7 @@ class MulticastAnnouncerClient:
                         for ip in self.ips[interface]:
                             self.sendPacket(ip['addr'])
             except Exception as e:
-                if self.verbose: print("[CLIENT - listenForChanges()]: {}".format(e))
+                if self.verbose: self.log.error("[CLIENT - listenForChanges()]: {}".format(e))
                 else: pass
             time.sleep(1)
 
@@ -69,7 +78,7 @@ class MulticastAnnouncerClient:
             data = "{}:{}:{}:{}".format(self.name, address, id, t)
             ip_type = ipaddress.ip_address(address)
             if self.verbose or (self.verbose and isinstance(ip_type, ipaddress.IPv6Address) and self.ipv6):
-                print("[VERBOSE] Sending packet {} at {} with content {}".format(id, t, self.name + ":" + address), file=sys.stderr)
+                self.log.info("[VERBOSE] Sending packet {} at {} with content {}".format(id, t, self.name + ":" + address), file=sys.stderr)
             
             if isinstance(ip_type, ipaddress.IPv6Address) and self.ipv6: self.sock.sendto(bytes(data, "utf-8"), (self.MCAST_GROUP, self.MCAST_PORT))
             else: self.sock.sendto(bytes(data, "utf-8"), (self.MCAST_GROUP, self.MCAST_PORT))
@@ -77,7 +86,7 @@ class MulticastAnnouncerClient:
             self.last_transmitted = t
             return True
         except:
-            if self.verbose: print("[CLIENT - sendPacket()]: {}".format(e))
+            if self.verbose: self.log.error("[CLIENT - sendPacket()]: {}".format(e))
             return False
 
             

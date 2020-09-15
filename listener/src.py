@@ -60,7 +60,7 @@ class MulticastAnnouncerListener:
                             cidr = "{}/{}".format(ip_addr, bits)
                             localSubnets.append(ipaddress.ip_network(cidr, False))
                         except Exception as e:
-                            if self.verbose: print("[LISTENER - getLocalSubnets() - (Try/Catch statement)]: {}".format(e))
+                            if self.verbose: self.log.error("[LISTENER - getLocalSubnets() - (Try/Catch statement)]: {}".format(e))
                             pass
             self.blacklisted_ips = blacklisted_ips
             self.localSubnets = localSubnets
@@ -97,7 +97,7 @@ class MulticastAnnouncerListener:
                     if self.hosts: self.writeHostsFile(recv)
                     self.log.info(codecs.decode(("{}{}{}".format(address, self.seperator, nickname)), 'unicode_escape'))
         except Exception as e:
-            if self.verbose: print("[LISTENER - parseResponse()]: {}".format(e))
+            if self.verbose: self.log.error("[LISTENER - parseResponse()]: {}".format(e))
             else: pass
 
     def writeLogFile(self):
@@ -127,5 +127,5 @@ class MulticastAnnouncerListener:
             self.hosts.add([ new_entry ])
             self.hosts.write()
         except Exception as e:
-            if self.verbose: print("[LISTENER - writeHostsFile()]: {}".format(e))
+            if self.verbose: self.log.error("[LISTENER - writeHostsFile()]: {}".format(e))
             else: pass
