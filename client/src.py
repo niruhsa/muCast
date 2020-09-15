@@ -40,7 +40,9 @@ class MulticastAnnouncerClient:
                     for interface in self.ips:
                         for ip in self.ips[interface]:
                             self.sendPacket(ip['addr'])
-            except Exception as e: pass
+            except Exception as e:
+                if self.verbose: print("[CLIENT - listenForChanges()]: {}".format(e))
+                else: pass
             time.sleep(1)
 
     def getIPs(self):
@@ -74,7 +76,9 @@ class MulticastAnnouncerClient:
             
             self.last_transmitted = t
             return True
-        except: return False
+        except:
+            if self.verbose: print("[CLIENT - sendPacket()]: {}".format(e))
+            return False
 
             
 
