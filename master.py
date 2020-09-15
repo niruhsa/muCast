@@ -9,7 +9,6 @@ class Master:
         self.MCAClient = threading.Thread(target=MulticastAnnouncerClient, kwargs=self.args).start()
         self.MCAListener = threading.Thread(target=MulticastAnnouncerListener, kwargs=self.args).start()
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Multicast IP Announcer")
     parser.add_argument('nickname', type=str)

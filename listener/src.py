@@ -29,6 +29,9 @@ class MulticastAnnouncerListener:
         self.log.addHandler(syslog)
         self.log = logging.LoggerAdapter(self.log, { 'app_name': 'muCast' })
 
+        if self.input_hostsfile and not self.hostsfile:
+            self.log.error('[ERROR] You can only import a hosts file if you are also writing a hosts file via -o')
+            os._exit(1)
         if self.hostsfile: self.hosts = Hosts(path=self.hostsfile)
         if os.path.exists(self.input_hostsfile) and os.path.isfile(self.input_hostsfile): 
             imported = self.hosts.import_file(self.input_hostsfile)
