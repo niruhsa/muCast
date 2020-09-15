@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import socket, struct, netifaces, ipaddress, codecs, sys, time, threading, logging
+import socket, struct, netifaces, ipaddress, codecs, sys, time, threading, logging, os
 from netaddr import IPAddress, IPNetwork
 from python_hosts import Hosts, HostsEntry
 
@@ -15,10 +15,10 @@ class MulticastAnnouncerListener:
         self.ips = {}
         self.logfile = kwargs['l']
         self.hostsfile = kwargs['o']
+        self.input_hostsfile = kwargs['i']
         self.seperator = kwargs['s']
         self.verbose = kwargs['v']
         self.name = kwargs['nickname']
-        if self.hostsfile: self.hosts = Hosts(path=self.hostsfile)
         
         self.log = logging.getLogger(__name__)
         syslog = logging.StreamHandler()
@@ -28,6 +28,14 @@ class MulticastAnnouncerListener:
         self.log.setLevel(logging.DEBUG)
         self.log.addHandler(syslog)
         self.log = logging.LoggerAdapter(self.log, { 'app_name': 'muCast' })
+
+        if self.hostsfile: self.hosts = Hosts(path=self.hostsfile)
+        if os.path.exists(self.input_hostsfile) and os.path.isfile(self.input_hostsfile): 
+            imported = self.hosts.import_file(self.input_hostsfile)
+            self.log.debug('[ OK ] Imported hosts file: {}'.format(self.input_hostsfile))
+        else:
+            self.log.error('[ERROR] The hosts file to import {} does not exist or no permission has been given to read it'.format(self.input_hostsfile))
+            os._exit(1)
 
         if not self.logfile: self.log.debug("[ OK ] Writing to stdout")
         else: self.log.debug('[ OK ] Writing to logfile: {}'.format(self.logfile))
