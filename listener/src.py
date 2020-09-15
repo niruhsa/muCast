@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import socket, struct, netifaces, ipaddress, codecs, sys, time, threading, logging
 from netaddr import IPAddress, IPNetwork
+from python_hosts import Hosts, HostsEntry
 
 class MulticastAnnouncerListener:
 
@@ -12,10 +13,12 @@ class MulticastAnnouncerListener:
         self.blacklisted_ips = []
         self.localSubnets = []
         self.ips = {}
-        self.logfile = kwargs['o']
+        self.logfile = kwargs['l']
+        self.hostsfile = kwargs['o']
         self.seperator = kwargs['s']
         self.verbose = kwargs['v']
         self.name = kwargs['nickname']
+        if self.hostsfile: self.hosts = Hosts(path=self.hostsfile)
         
         self.log = logging.getLogger(__name__)
         syslog = logging.StreamHandler()
@@ -89,6 +92,7 @@ class MulticastAnnouncerListener:
                 if ip in subnet and nickname != self.name:
                     self.ips[nickname] = address
                     if self.logfile: self.writeLogFile()
+                    if self.hosts: self.writeHostsFile(recv)
                     self.log.info(codecs.decode(("{}{}{}".format(address, self.seperator, nickname)), 'unicode_escape'))
         except Exception as e: pass
 
@@ -100,3 +104,22 @@ class MulticastAnnouncerListener:
                 file_content += "{}{}{}\n".format(ip, self.seperator, nickname)
             file.write(codecs.decode(file_content, 'unicode_escape'))
             file.close()
+    
+    def writeHostsFile(self, recv):
+        try:
+            nickname = recv.split(":")[0]
+            address = ipaddress.ip_address(recv.split(":")[1])
+            packet_id = recv.split(":")[2]
+            timestamp = recv.split(":")[3]
+            ip_type = ipaddress.ip_address(address)
+            self.hosts.remove_all_matching(name=nickname)
+            if isinstance(ip_type, ipaddress.IPv4Address):
+                new_entry = HostsEntry(entry_type='ipv4', address=str(address), names=[ nickname ])
+            elif isinstance(ip_type, ipaddress.IPv6Address) and self.ipv6:
+                new_entry = HostsEntry(entry_type='ipv6',  address=str(address), names=[ nickname ])
+            else:
+                new_entry = HostsEntry(entry_type='blank', address=str(address), names=[ nickname ])
+
+            self.hosts.add([ new_entry ])
+            self.hosts.write()
+        except Exception as e: print(e)
