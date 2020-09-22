@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import socket, time, ipaddress, netifaces, string, random, sys, logging
+from netaddr import IPAddress, IPNetwork
 
 class MulticastAnnouncerClient:
 
@@ -14,6 +15,8 @@ class MulticastAnnouncerClient:
         self.verbose = kwargs['v']
         self.ips = {}
         self.last_transmitted = 0
+        self.blacklist = str(kwargs['bc']).split(",")
+        self.blacklisted_subnets = []
 
         self.log = logging.getLogger(__name__)
         syslog = logging.StreamHandler()
@@ -29,6 +32,7 @@ class MulticastAnnouncerClient:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, self.MCAST_TTL)
 
+        self.blacklistedSubnets()
         self.listenForChanges()
 
     def listenForChanges(self):
@@ -54,6 +58,11 @@ class MulticastAnnouncerClient:
                 else: pass
             time.sleep(1)
 
+    def blacklistedSubnets(self):
+        for subnet in self.blacklist:
+            try: self.blacklisted_subnets.append(IPNetwork(str(subnet)))
+            except: pass
+
     def getIPs(self):
         for inter in netifaces.interfaces():
             if inter not in self.blacklisted_interfaces:
@@ -73,20 +82,27 @@ class MulticastAnnouncerClient:
     
     def sendPacket(self, address):
         try:
-            id = self.randomString()
-            t = time.time()
-            data = "{}:{}:{}:{}".format(self.name, address, id, t)
-            ip_type = ipaddress.ip_address(address)
-            if self.verbose or (self.verbose and isinstance(ip_type, ipaddress.IPv6Address) and self.ipv6):
-                self.log.info("[VERBOSE] Sending packet {} at {} with content {}".format(id, t, self.name + ":" + address))
+            is_blacklisted = False
+            for b_subnet in self.blacklisted_subnets:
+                if IPAddress(str(address)) in b_subnet: is_blacklisted = True
             
-            if isinstance(ip_type, ipaddress.IPv6Address) and self.ipv6: self.sock.sendto(bytes(data, "utf-8"), (self.MCAST_GROUP, self.MCAST_PORT))
-            else: self.sock.sendto(bytes(data, "utf-8"), (self.MCAST_GROUP, self.MCAST_PORT))
-            
-            self.last_transmitted = t
+            if not is_blacklisted:
+                id = self.randomString()
+                t = time.time()
+                data = "{}:{}:{}:{}".format(self.name, address, id, t)
+                ip_type = ipaddress.ip_address(address)
+                if self.verbose or (self.verbose and isinstance(ip_type, ipaddress.IPv6Address) and self.ipv6):
+                    self.log.info("[VERBOSE] Sending packet {} at {} with content {}".format(id, t, self.name + ":" + address))
+                
+                if isinstance(ip_type, ipaddress.IPv6Address) and self.ipv6: self.sock.sendto(bytes(data, "utf-8"), (self.MCAST_GROUP, self.MCAST_PORT))
+                else: self.sock.sendto(bytes(data, "utf-8"), (self.MCAST_GROUP, self.MCAST_PORT))
+                
+                self.last_transmitted = t
+
             return True
         except Exception as e:
-            if self.verbose: self.log.error("[CLIENT - sendPacket()]: {}".format(e))
+            if self.verbose and "failed to detect" not in str(e) and "_version" not in str(e):
+                self.log.error("[CLIENT - sendPacket()]: {}".format(e))
             return False
 
             

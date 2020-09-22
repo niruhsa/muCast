@@ -19,6 +19,8 @@ if __name__ == "__main__":
     parser.add_argument('-o', nargs='?', const=True, default=False, help='Write a hosts file to the file location specified')
     parser.add_argument('-i', nargs='?', const=True, default=False, help='Import a hosts file to append to')
     parser.add_argument('-s', nargs='?', const=True, default=":", help='Character for the nickname<seperator>ip format, by default this seperator is ":"')
+    parser.add_argument('-bl', nargs='?', const=True, default="", help='Comma seperated list of subnets to blacklist for the listener')
+    parser.add_argument('-bc', nargs='?', const=True, default="", help='Comma seperated list of subnets to blacklist for the client')
     args = vars(parser.parse_args())
     master = Master(**args)
     

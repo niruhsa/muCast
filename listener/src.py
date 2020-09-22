@@ -19,6 +19,8 @@ class MulticastAnnouncerListener:
         self.seperator = kwargs['s']
         self.verbose = kwargs['v']
         self.name = kwargs['nickname']
+        self.blacklist = str(kwargs['bl']).split(",")
+        self.blacklisted_subnets = []
         
         self.log = logging.getLogger(__name__)
         syslog = logging.StreamHandler()
@@ -33,10 +35,11 @@ class MulticastAnnouncerListener:
             self.log.error('[ERROR] You can only import a hosts file if you are also writing a hosts file via -o')
             os._exit(1)
         if self.hostsfile: self.hosts = Hosts(path=self.hostsfile)
-        if os.path.exists(self.input_hostsfile) and os.path.isfile(self.input_hostsfile): 
+        else: self.hosts = False
+        if os.path.exists(self.input_hostsfile) and os.path.isfile(self.input_hostsfile) and self.input_hostsfile: 
             imported = self.hosts.import_file(self.input_hostsfile)
             self.log.debug('[ OK ] Imported hosts file: {}'.format(self.input_hostsfile))
-        else:
+        elif self.input_hostsfile:
             self.log.error('[ERROR] The hosts file to import {} does not exist or no permission has been given to read it'.format(self.input_hostsfile))
             os._exit(1)
 
@@ -45,6 +48,8 @@ class MulticastAnnouncerListener:
 
         sys.stdout.flush()
         sys.stderr.flush()
+
+        self.blacklistedSubnets()
 
         localSubnets = threading.Thread(target=self.getLocalSubnets, args=()).start()
         receive = threading.Thread(target=self.receive, args=()).start()
@@ -76,6 +81,11 @@ class MulticastAnnouncerListener:
             self.blacklisted_ips = blacklisted_ips
             self.localSubnets = localSubnets
             time.sleep(1)
+    
+    def blacklistedSubnets(self):
+        for subnet in self.blacklist:
+            try: self.blacklisted_subnets.append(IPNetwork(str(subnet)))
+            except: pass
 
     def receive(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -102,13 +112,19 @@ class MulticastAnnouncerListener:
             for subnet in self.localSubnets:
                 subnet = IPNetwork(str(subnet))
                 ip = IPAddress(str(address))
-                if ip in subnet and nickname != self.name:
+
+                is_blacklisted = False
+                for b_subnet in self.blacklisted_subnets:
+                    if ip in b_subnet: is_blacklisted = True
+                    
+                if ip in subnet and nickname != self.name and not is_blacklisted:
                     self.ips[nickname] = address
                     if self.logfile: self.writeLogFile()
                     if self.hosts: self.writeHostsFile(recv)
                     self.log.info(codecs.decode(("{}{}{}".format(address, self.seperator, nickname)), 'unicode_escape'))
         except Exception as e:
-            if self.verbose: self.log.error("[LISTENER - parseResponse()]: {}".format(e))
+            if self.verbose and "does not appear to be an IPv4 or IPv6 address" not in str(e):
+                self.log.error("[LISTENER - parseResponse()]: {}".format(e))
             else: pass
 
     def writeLogFile(self):
