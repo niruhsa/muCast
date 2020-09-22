@@ -71,7 +71,7 @@ class MulticastAnnouncerListener:
                             cidr = "{}/{}".format(ip_addr, bits)
                             localSubnets.append(ipaddress.ip_network(cidr, False))
                         except Exception as e:
-                            if self.verbose: self.log.error("[LISTENER - getLocalSubnets() - (Try/Catch statement)]: {}".format(e))
+                            #if self.verbose: self.log.error("[LISTENER - getLocalSubnets() - (Try/Catch statement)]: {}".format(e))
                             pass
             self.blacklisted_ips = blacklisted_ips
             self.localSubnets = localSubnets
