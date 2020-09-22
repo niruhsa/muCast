@@ -78,14 +78,14 @@ class MulticastAnnouncerClient:
             data = "{}:{}:{}:{}".format(self.name, address, id, t)
             ip_type = ipaddress.ip_address(address)
             if self.verbose or (self.verbose and isinstance(ip_type, ipaddress.IPv6Address) and self.ipv6):
-                self.log.info("[VERBOSE] Sending packet {} at {} with content {}".format(id, t, self.name + ":" + address), file=sys.stderr)
+                self.log.info("[VERBOSE] Sending packet {} at {} with content {}".format(id, t, self.name + ":" + address))
             
             if isinstance(ip_type, ipaddress.IPv6Address) and self.ipv6: self.sock.sendto(bytes(data, "utf-8"), (self.MCAST_GROUP, self.MCAST_PORT))
             else: self.sock.sendto(bytes(data, "utf-8"), (self.MCAST_GROUP, self.MCAST_PORT))
             
             self.last_transmitted = t
             return True
-        except:
+        except Exception as e:
             if self.verbose: self.log.error("[CLIENT - sendPacket()]: {}".format(e))
             return False
 

@@ -98,7 +98,7 @@ class MulticastAnnouncerListener:
             packet_id = recv.split(":")[2]
             timestamp = recv.split(":")[3]
             if self.verbose:
-                self.log.debug("[VERBOSE] Packet {} from {} with content {} received at {} ({} difference in ms)".format(packet_id, nickname, address, timestamp, ((time.time() - float(timestamp)) / 1000)), file=sys.stderr)
+                self.log.debug("[VERBOSE] Packet {} from {} with content {} received at {} ({} difference in ms)".format(packet_id, nickname, address, timestamp, ((time.time() - float(timestamp)) / 1000)))
             for subnet in self.localSubnets:
                 subnet = IPNetwork(str(subnet))
                 ip = IPAddress(str(address))
